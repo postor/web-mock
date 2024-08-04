@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+        "baseUrl": ".",
+        "paths": {
+            "*": [
+                "common/src/*",
+                "frontend/src/*",
+                "backend/src/*",
+                "cli/src/*"
+            ]
+        }
+    },
+    "references": [
+        {
+            "path": "@web-mock/common"
+        },
+        {
+            "path": "@web-mock/frontend"
+        },
+        {
+            "path": "@web-mock/backend"
+        },
+        {
+            "path": "@web-mock/cli"
+        }
+    ]
+}
