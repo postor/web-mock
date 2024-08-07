@@ -6,7 +6,8 @@
                 "common/src/*",
                 "frontend/src/*",
                 "backend/src/*",
-                "cli/src/*"
+                "cli/src/*",
+                "tinybase/src/*"
             ]
         }
     },
@@ -22,6 +23,9 @@
         },
         {
             "path": "@web-mock/cli"
+        },
+        {
+            "path": "@web-mock/tinybase"
         }
     ]
 }

@@ -1,14 +1,28 @@
+import { Row } from "tinybase/store"
 
-type SharedData = {
-    path: string
-    lastMessage: any
-    inputMessage: any
+
+export interface SharedData extends Row {
+    id: string
+    url: string
+    historyMessagesJson: string
+    inputMessagesJson: string
+    connectTime: number
+    autoRespondMessage: string
 }
 
 export interface IWebSocketData extends SharedData {
+    type: 'websocket'
+    initRespondMessage: string
 }
 
-export interface IRestData extends SharedData {    
+export interface IRestData extends SharedData {
+    type: 'rest'
 }
 
-export const Y_ROOM = 'app_data'
+export enum MockEventType {
+    connect = 'connect',
+    disconnect = 'disconnect',
+    request = 'request',
+    send = 'send',
+    update = 'send',
+}
