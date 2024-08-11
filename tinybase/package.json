@@ -1,5 +1,5 @@
 {
-  "name": "@web-mock/common",
+  "name": "@web-mock/tinybase",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
@@ -9,7 +9,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "rxjs": "^7.8.1",
-    "tinybase": "^5.1.1"
+    "tinybase": "^5.1.1",
+    "ws": "^8.18.0"
   }
 }

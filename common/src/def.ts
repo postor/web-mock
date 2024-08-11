@@ -1,22 +1,49 @@
 import { Row } from "tinybase/store"
 
-
-export interface SharedData extends Row {
-    id: string
-    url: string
+interface OptionalData {
     historyMessagesJson: string
     inputMessagesJson: string
     connectTime: number
     autoRespondMessage: string
+    sending: string
+    sendInput: string
 }
 
-export interface IWebSocketData extends SharedData {
+type PartialOrFull = {
+    partial: Partial<OptionalData>
+    full: OptionalData,
+    omit: {},
+}
+
+
+export type SharedData<T extends keyof PartialOrFull> = {
+    id: string
+    url: string
+} & PartialOrFull[T]
+
+export type IWebSocketData<T extends keyof PartialOrFull = 'full'> = SharedData<T> & {
     type: 'websocket'
     initRespondMessage: string
+};
+
+export type IRestData<T extends keyof PartialOrFull = 'full'> = SharedData<T> & {
+    type: 'rest'
+    detain: boolean
 }
 
-export interface IRestData extends SharedData {
-    type: 'rest'
+export type TableTypeMap = {
+    websocket: {
+        [T in keyof PartialOrFull]: {
+            data: IWebSocketData<T>
+            row: IWebSocketData<T> & Row
+        }
+    }
+    rest: {
+        [T in keyof PartialOrFull]: {
+            data: IRestData<T>
+            row: IRestData<T> & Row
+        }
+    }
 }
 
 export enum MockEventType {
