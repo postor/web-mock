@@ -1,10 +1,23 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
-import router from 'vite-plugin-react-views'
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+import ViteReactAutoRoutePlugin from 'vite-react-auto-route-plugin'
+import tailwindcss from 'tailwindcss'
 
 export default defineConfig({
-  plugins: [react(), router()],
+  css: {
+    postcss: {
+      plugins: [
+        tailwindcss,
+      ],
+    }
+  },
+  plugins: [
+    react(),
+    ViteReactAutoRoutePlugin({
+      root: './src/pages', // Optional customization
+      getRoutesFile: /auto-get-routes\.ts/,
+    }),],
   resolve: {
     alias: {
       // '@mono-test/other': path.resolve(__dirname, '../workspace-other/src'),

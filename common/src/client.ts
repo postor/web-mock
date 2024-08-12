@@ -23,7 +23,7 @@ type ParsedData<T> = {
 }
 
 const { WS_TINYBASE = 'ws://localhost:8050' } = process.env
-const store = createMergeableStore();
+export const store = createMergeableStore();
 
 export async function init() {
     const synchronizer = await createWsSynchronizer(

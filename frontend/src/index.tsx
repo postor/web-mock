@@ -1,15 +1,18 @@
-import ReactDOM from 'react-dom/client';
+import getRoutes from './auto-get-routes'
+import ReactDOM from 'react-dom/client'
 import { RouterProvider, createBrowserRouter } from 'react-router-dom'
-// Requirement: import routes
-import routes from 'route-views'
+import './global.css'
+import { TinyBaseProvider } from './tools/TinyBaseProvider'
+
+const routes = getRoutes()
 
 const router = createBrowserRouter(routes)
 
 function App() {
   return (
-    <RouterProvider
-      router={router}
-    />
+    <TinyBaseProvider>
+      <RouterProvider router={router} />
+    </TinyBaseProvider>
   )
 }
 const rootElement = document.getElementById('react-root');
