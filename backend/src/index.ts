@@ -22,6 +22,7 @@ app.use('/', (req, res, next) => {
     }
     console.log(`[client][msg]:${req.url}:${JSON.stringify(req.body)}`)
     let row = restapis.get(req.url)
+    console.log({ row })
     if (!row) {
         restapis.set({
             id: req.url, url: req.url, type: 'rest', sending: '',

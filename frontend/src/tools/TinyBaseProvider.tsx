@@ -7,6 +7,8 @@ const Ctx = createContext({
     restapis,
     inited: false
 })
+// @ts-ignore
+window.store = store
 
 export function useTinyBase() {
     return useContext(Ctx)

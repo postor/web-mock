@@ -1,8 +1,9 @@
 // On the first client machine:
-import { IRestData, IWebSocketData, TableTypeMap } from 'def';
-import { createMergeableStore, Cell } from 'tinybase';
-import { createWsSynchronizer } from 'tinybase/synchronizers/synchronizer-ws-client';
-import { WebSocket } from 'ws';
+import { TableTypeMap } from 'def'
+import { useTable } from 'tinybase/ui-react'
+import { createMergeableStore, Cell } from 'tinybase'
+import { createWsSynchronizer } from 'tinybase/synchronizers/synchronizer-ws-client'
+import { WebSocket as WS } from 'ws'
 import { fromEventPattern, Observable } from 'rxjs'
 
 type MessageItem = {
@@ -16,14 +17,10 @@ type MessagesObject = {
     list: MessageItem[]
 }
 
-type ParsedData<T> = {
-    historyMessages: MessagesObject,
-    inputMessages: MessagesObject,
-    getObservable: () => Observable<T>,
-}
+const WebSocket = typeof window === 'undefined' ? WS : window.WebSocket
 
 const { WS_TINYBASE = 'ws://localhost:8050' } = process.env
-export const store = createMergeableStore();
+export const store = createMergeableStore()
 
 export async function init() {
     const synchronizer = await createWsSynchronizer(
@@ -44,18 +41,32 @@ type TSet<T extends TableName> = TPartial<T> & any
 type TFullData<T extends TableName> = TableTypeMap[T]['full']['data']
 
 export function getTable<T extends TableName>(name: T) {
-    const that = {
+    return {
         set: (val: TSet<T>) => {
             let v = getRawData(val)
+            console.log({ name, id: v.id, v })
             store.setTable(name, { [v.id]: v })
         },
         get: (id: string) => {
             let row = store.getRow(name, id) as TFull<T>
-            if (!row) return
+            if (!row || !Object.keys(row).length) return
             return getExtendedData(row, name)
         },
+        useList: () => {
+            const table = useTable(name)
+            return Object.values(table)
+                .map(row => getExtendedData(row as TFull<T>, name))
+                .sort((a, b) => {
+                    if (a.url < b.url) {
+                        return -1;
+                    }
+                    if (a.url > b.url) {
+                        return 1;
+                    }
+                    return 0;
+                })
+        }
     }
-    return that
 
     function getRawData(val: TSet<T>): TFull<T> {
         let { historyMessages, inputMessages } = val

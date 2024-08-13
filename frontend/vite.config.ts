@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 import ViteReactAutoRoutePlugin from 'vite-react-auto-route-plugin'
 import tailwindcss from 'tailwindcss'
+import EnvironmentPlugin from 'vite-plugin-environment'
 
 export default defineConfig({
   css: {
@@ -17,7 +18,11 @@ export default defineConfig({
     ViteReactAutoRoutePlugin({
       root: './src/pages', // Optional customization
       getRoutesFile: /auto-get-routes\.ts/,
-    }),],
+    }),
+    EnvironmentPlugin({
+      WS_TINYBASE: process.env.WS_TINYBASE || 'ws://localhost:8050',
+    }),
+  ],
   resolve: {
     alias: {
       // '@mono-test/other': path.resolve(__dirname, '../workspace-other/src'),
