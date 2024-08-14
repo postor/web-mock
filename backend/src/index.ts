@@ -22,7 +22,7 @@ app.use('/', (req, res, next) => {
     }
     console.log(`[client][msg]:${req.url}:${JSON.stringify(req.body)}`)
     let row = restapis.get(req.url)
-    console.log({ row })
+    console.log(req.url, row)
     if (!row) {
         restapis.set({
             id: req.url, url: req.url, type: 'rest', sending: '',
@@ -108,6 +108,6 @@ main()
 
 async function main() {
     await init()
-    server.listen(PORT, () => console.log(`server started on ${PORT}`))
+    server.listen(PORT, () => console.log(`backend server started on ${PORT}`))
 }
 

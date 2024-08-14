@@ -6,6 +6,7 @@ import { createFilePersister } from 'tinybase/persisters/persister-file';
 import { createWsServer } from 'tinybase/synchronizers/synchronizer-ws-server';
 import { WebSocketServer } from 'ws';
 
+const { PORT = '8050' } = process.env
 
 main()
 
@@ -15,13 +16,13 @@ async function main() {
     mkdirSync(dbPath);
   }
   const server = createWsServer(
-    new WebSocketServer({ port: 8050 }),
+    new WebSocketServer({ port: parseInt(PORT) }),
     (pathId) => createFilePersister(
       createMergeableStore(),
       join(dbPath, `${pathId.replace(/[^a-zA-Z0-9]/g, '-') || 'default'}.json`),
     ),
   );
-  console.log('server started!')
+  console.log(`tinybase websocket server started on ${PORT}!`)
 
   process.on('SIGINT', () => {
     console.log('cleaning...');

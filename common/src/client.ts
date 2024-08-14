@@ -44,16 +44,16 @@ export function getTable<T extends TableName>(name: T) {
     return {
         set: (val: TSet<T>) => {
             let v = getRawData(val)
-            console.log({ name, id: v.id, v })
-            store.setTable(name, { [v.id]: v })
+            store.setRow(name, v.id, v)
         },
         get: (id: string) => {
             let row = store.getRow(name, id) as TFull<T>
-            if (!row || !Object.keys(row).length) return
+            if (!row || !row.id) return
             return getExtendedData(row, name)
         },
         useList: () => {
-            const table = useTable(name)
+            const table = useTable(name, store)
+            console.log(table)
             return Object.values(table)
                 .map(row => getExtendedData(row as TFull<T>, name))
                 .sort((a, b) => {
