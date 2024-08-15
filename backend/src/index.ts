@@ -22,32 +22,51 @@ app.use('/', (req, res, next) => {
     }
     console.log(`[client][msg]:${req.url}:${JSON.stringify(req.body)}`)
     let row = restapis.get(req.url)
-    console.log(req.url, row)
     if (!row) {
         restapis.set({
             id: req.url, url: req.url, type: 'rest', sending: '',
             sendInput: '', initRespondMessage: '', autoRespondMessage: '',
             inputMessagesJson: '', historyMessagesJson: '', detain: false,
+            json: true,
         })
         row = restapis.get(req.url)
     }
-    row.historyMessages.push({
+    row.historyMessages.list.push({
         msg: JSON.stringify(req.body, null, 2),
-        type: 'sent',
+        type: 'received',
+        time: new Date().getTime()
     })
-    if (row.detain) {
+    row.save()
+    if (row.autoRespondMessage) {
+        console.log(`[mock][msg]:${row.autoRespondMessage}`)
+        if (row.json) {
+            res.json(JSON.parse(row.autoRespondMessage))
+        } else {
+            res.send(row.autoRespondMessage)
+        }
+        row = restapis.get(req.url)
+        row.historyMessages.unshift({
+            msg: row.autoRespondMessage,
+            type: 'sent',
+        })
+        row.save()
+    } else if (row.detain) {
         row.getObservable('sending').pipe(
             find(x => !!x),
             tap(sending => {
                 console.log(`[mock][msg]:${sending}`)
-                res.json(JSON.parse(sending))
+                if (row.json) {
+                    res.json(JSON.parse(row.sending))
+                } else {
+                    res.send(row.sending)
+                }
                 row = restapis.get(req.url)
                 row.sending = ''
-                row.historyMessages.push({
+                row.historyMessages.unshift({
                     msg: sending,
                     type: 'sent',
                 })
-                restapis.set(row)
+                row.save()
             }),
         ).subscribe()
     } else {
@@ -77,7 +96,11 @@ wss.on('connection', (ws, req) => {
             fromEvent(ws, 'message').pipe(
                 map((x: MessageEvent) => x.data as string),
                 tap(msg => console.log(`[client][msg]:${req.url}:${msg}`)),
-                tap(msg => websockets.get(ws.url).historyMessages.push({ msg, type: 'received' }))
+                tap(msg => {
+                    let row = websockets.get(ws.url)
+                    row.historyMessages.unshift({ msg, type: 'received' })
+                    row.save()
+                })
             ),
             // send message
             row.getObservable('sending').pipe(
@@ -88,11 +111,11 @@ wss.on('connection', (ws, req) => {
                     ws.send(sending)
                     row = websockets.get(req.url)
                     row.sending = ''
-                    row.historyMessages.push({
+                    row.historyMessages.unshift({
                         msg: sending,
                         type: 'sent',
                     })
-                    websockets.set(row)
+                    row.save()
                 }),
             )
         )),

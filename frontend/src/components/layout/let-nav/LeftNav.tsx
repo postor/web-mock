@@ -32,7 +32,7 @@ function Filter() {
             <input
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                placeholder="Filter (e.g., /\\d$/)"
+                placeholder="Filter, string or regexp"
                 className="w-full p-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
             />
         </div>
@@ -65,6 +65,9 @@ function ConnectionList<T extends ListItem>({ list, title }: { list: T[], title:
 
 function filterX<T extends ListItem>(list: T[], filter: string) {
     if (!filter) return list
-    const regex = new RegExp(filter);
-    return list.filter(item => regex.test(item.url));
+    if (filter.startsWith('/') && filter.endsWith('/')) {
+        const regex = new RegExp(filter.substring(1, filter.length - 1));
+        return list.filter(item => regex.test(item.url));
+    }
+    return list.filter(item => item.url.includes(filter))
 }

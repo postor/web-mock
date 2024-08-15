@@ -27,6 +27,8 @@ export async function init() {
         store,
         new WebSocket(WS_TINYBASE),
     )
+    await synchronizer.startAutoSave()
+    await synchronizer.startAutoLoad()
     await synchronizer.startSync()
 }
 
@@ -37,13 +39,14 @@ export const restapis = getTable('rest')
 type TableName = keyof TableTypeMap
 type TFull<T extends TableName> = TableTypeMap[T]['full']['row']
 type TPartial<T extends TableName> = TableTypeMap[T]['partial']['row']
-type TSet<T extends TableName> = TPartial<T> & any
+type TSet<T extends TableName> = TPartial<T>
 type TFullData<T extends TableName> = TableTypeMap[T]['full']['data']
 
 export function getTable<T extends TableName>(name: T) {
     return {
         set: (val: TSet<T>) => {
             let v = getRawData(val)
+            console.log(name, v.id, v)
             store.setRow(name, v.id, v)
         },
         get: (id: string) => {
@@ -84,16 +87,20 @@ export function getTable<T extends TableName>(name: T) {
 }
 
 export function getExtendedData<T extends TableName>(row: TFull<T>, table: T) {
-    return {
+    let rtn = {
         ...row,
         historyMessages: {
             ...parseMessages(row.historyMessagesJson),
-            push: (msg: Omit<MessageItem, 'time'>) => pushJsonMsg(msg, 'historyMessages'),
+            unshift: (msg: Omit<MessageItem, 'time'>) => {
+                rtn.historyMessages.list.unshift({
+                    msg: row.autoRespondMessage,
+                    type: 'sent',
+                    time: new Date().getTime()
+                })
+                rtn.historyMessages.list.length = rtn.historyMessages.limit
+            }
         },
-        inputMessages: {
-            ...parseMessages(row.inputMessagesJson),
-            push: (msg: Omit<MessageItem, 'time'>) => pushJsonMsg(msg, 'historyMessages'),
-        },
+        inputMessages: parseMessages(row.inputMessagesJson),
         getObservable: <T1 extends keyof TFullData<T>>(cellName: T1): Observable<TFullData<T>[T1]> => fromEventPattern(
             (handler) => store.addCellListener(
                 table, row.id, cellName as string,
@@ -103,27 +110,16 @@ export function getExtendedData<T extends TableName>(row: TFull<T>, table: T) {
         ),
         updateCell: <T1 extends keyof TFullData<T> & string>(cellName: T1, value: TFullData<T>[T1] & Cell) => {
             store.setCell(table, row.id, cellName, value)
+        },
+        save: () => {
+            getTable(table).set(rtn)
         }
     }
-
-    function pushJsonMsg(msg: Omit<MessageItem, 'time'>, key: 'historyMessages' | 'inputMessages') {
-        const tmp = store.getRow(table, row.id) as TFull<T>
-
-        const msgs = parseMessages(tmp[key] as string)
-        const limit = msgs.limit
-        msgs.list.unshift({
-            ...msg,
-            time: new Date().getTime()
-        })
-        msgs.list.length = limit
-        tmp[key] = JSON.stringify(msgs)
-        store.setTable(table, { [tmp.id]: tmp })
-
-    }
+    return rtn
 }
 
 
-function parseMessages(str?: string): MessagesObject {
+export function parseMessages(str?: string): MessagesObject {
     if (str) return JSON.parse(str)
     return {
         limit: 3,

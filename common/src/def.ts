@@ -29,6 +29,7 @@ export type IWebSocketData<T extends keyof PartialOrFull = 'full'> = SharedData<
 export type IRestData<T extends keyof PartialOrFull = 'full'> = SharedData<T> & {
     type: 'rest'
     detain: boolean
+    json: boolean
 }
 
 export type TableTypeMap = {
