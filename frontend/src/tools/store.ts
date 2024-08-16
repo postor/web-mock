@@ -1,7 +1,7 @@
 import { atom } from 'recoil'
 
 export const selectedId = atom({
-    default: '',
+    default: { id: '', table: '' },
     key: 'selectedId'
 })
 

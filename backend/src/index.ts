@@ -1,5 +1,5 @@
 import express = require('express')
-import { init, restapis, websockets } from '@web-mock/common/src/client'
+import { init, restapis, websockets, store } from '@web-mock/common/src/client'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 import { filter, find, fromEvent, interval, map, merge, of, switchMap, takeUntil, tap, throttle } from 'rxjs'
@@ -31,10 +31,9 @@ app.use('/', (req, res, next) => {
         })
         row = restapis.get(req.url)
     }
-    row.historyMessages.list.push({
+    row.historyMessages.unshift({
         msg: JSON.stringify(req.body, null, 2),
         type: 'received',
-        time: new Date().getTime()
     })
     row.save()
     if (row.autoRespondMessage) {
@@ -51,27 +50,36 @@ app.use('/', (req, res, next) => {
         })
         row.save()
     } else if (row.detain) {
-        row.getObservable('sending').pipe(
-            find(x => !!x),
-            tap(sending => {
-                console.log(`[mock][msg]:${sending}`)
-                if (row.json) {
-                    res.json(JSON.parse(row.sending))
-                } else {
-                    res.send(row.sending)
-                }
-                row = restapis.get(req.url)
-                row.sending = ''
-                row.historyMessages.unshift({
-                    msg: sending,
-                    type: 'sent',
-                })
-                row.save()
-            }),
-        ).subscribe()
+        let listenerId = store.addCellListener(row.type, row.id, 'sending', (
+            _0, _1, _2, _3, sendingJson: string
+        ) => {
+            if (!sendingJson) return
+            const { msg: sending } = JSON.parse(sendingJson)
+            row = restapis.get(req.url)
+            console.log(`[mock][msg]:${sending}`)
+            row.sending = ''
+            row.historyMessages.unshift({
+                msg: sending,
+                type: 'sent',
+            })
+            row.save()
+            store.delListener(listenerId)
+            if (row.json) {
+                console.log({ sending })
+                res.json(JSON.parse(sending))
+            } else {
+                res.send(sending)
+            }
+        })
     } else {
+        let rtn = { message: 'Mock response' }
+        row.historyMessages.unshift({
+            msg: JSON.stringify(rtn),
+            type: 'sent',
+        })
+        row.save()
         // Handle REST request
-        res.json({ message: 'Mock response' });
+        res.json(rtn);
     }
 })
 

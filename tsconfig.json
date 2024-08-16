@@ -9,7 +9,8 @@
                 "cli/src/*",
                 "tinybase/src/*"
             ]
-        }
+        },
+        "esModuleInterop": true
     },
     "references": [
         {

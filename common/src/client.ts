@@ -75,12 +75,10 @@ export function getTable<T extends TableName>(name: T) {
         let { historyMessages, inputMessages } = val
         let v = { ...val } as any as TFull<T>
         for (const k in v) {
-            if (!['string', 'number'].includes(typeof v[k])) delete v[k]
+            if (!['string', 'number', 'boolean'].includes(typeof v[k])) delete v[k]
         }
         v.historyMessagesJson = JSON.stringify(historyMessages || parseMessages())
         v.inputMessagesJson = JSON.stringify(inputMessages || parseMessages())
-        v.autoRespondMessage = v.autoRespondMessage || ''
-        v.initRespondMessage = v.initRespondMessage || ''
         v.connectTime = v.connectTime || new Date().getTime()
         return v
     }
@@ -93,8 +91,7 @@ export function getExtendedData<T extends TableName>(row: TFull<T>, table: T) {
             ...parseMessages(row.historyMessagesJson),
             unshift: (msg: Omit<MessageItem, 'time'>) => {
                 rtn.historyMessages.list.unshift({
-                    msg: row.autoRespondMessage,
-                    type: 'sent',
+                    ...msg,
                     time: new Date().getTime()
                 })
                 rtn.historyMessages.list.length = rtn.historyMessages.limit

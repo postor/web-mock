@@ -42,7 +42,7 @@ function Filter() {
 type ListItem = ReturnType<typeof getExtendedData>;
 
 function ConnectionList<T extends ListItem>({ list, title }: { list: T[], title: string }) {
-    const [id, setId] = useRecoilState(selectedId);
+    const [{ id }, setId] = useRecoilState(selectedId);
 
     return (
         <div className="space-y-2">
@@ -52,7 +52,10 @@ function ConnectionList<T extends ListItem>({ list, title }: { list: T[], title:
                     <li
                         key={x.id}
                         className={`p-3 rounded-lg cursor-pointer transition-colors ${id === x.id ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'}`}
-                        onClick={() => setId(x.id)}
+                        onClick={() => setId({
+                            id: x.id,
+                            table: x.type,
+                        })}
                     >
                         <h5 className="font-medium">{x.url}</h5>
                         {x.type === 'websocket' && <p className="text-sm text-gray-500">{x.id}</p>}
