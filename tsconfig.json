@@ -7,10 +7,11 @@
                 "frontend/src/*",
                 "backend/src/*",
                 "cli/src/*",
-                "tinybase/src/*"
+                "db/src/*"
             ]
         },
-        "esModuleInterop": true
+        "esModuleInterop": true,
+        "skipLibCheck": true
     },
     "references": [
         {
@@ -26,7 +27,7 @@
             "path": "@web-mock/cli"
         },
         {
-            "path": "@web-mock/tinybase"
+            "path": "@web-mock/db"
         }
     ]
 }

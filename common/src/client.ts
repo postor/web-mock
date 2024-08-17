@@ -1,125 +1,124 @@
-// On the first client machine:
-import { TableTypeMap } from 'def'
-import { useTable } from 'tinybase/ui-react'
-import { createMergeableStore, Cell } from 'tinybase'
-import { createWsSynchronizer } from 'tinybase/synchronizers/synchronizer-ws-client'
-import { WebSocket as WS } from 'ws'
-import { fromEventPattern, Observable } from 'rxjs'
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+import { WebSocket } from 'ws'
+import { TableTypeMap } from './def'
 
-type MessageItem = {
-    type: 'sent' | 'received',
-    msg: string,
-    time: number,
-}
-
-type MessagesObject = {
-    limit: number,
-    list: MessageItem[]
-}
-
-const WebSocket = typeof window === 'undefined' ? WS : window.WebSocket
-
-const { WS_TINYBASE = 'ws://localhost:8050' } = process.env
-export const store = createMergeableStore()
-
-export async function init() {
-    const synchronizer = await createWsSynchronizer(
-        store,
-        new WebSocket(WS_TINYBASE),
-    )
-    await synchronizer.startAutoSave()
-    await synchronizer.startAutoLoad()
-    await synchronizer.startSync()
-}
-
-export const websockets = getTable('websocket')
-export const restapis = getTable('rest')
-
+const { WS_TINYBASE = 'ws://localhost:1234' } = process.env
 
 type TableName = keyof TableTypeMap
-type TFull<T extends TableName> = TableTypeMap[T]['full']['row']
-type TPartial<T extends TableName> = TableTypeMap[T]['partial']['row']
-type TSet<T extends TableName> = TPartial<T>
-type TFullData<T extends TableName> = TableTypeMap[T]['full']['data']
+
+export const store = new Y.Doc()
+
+export async function init() {
+    await new Promise(resolve => {
+        const wsProvider = new WebsocketProvider(WS_TINYBASE, 'default-room', store, {
+            WebSocketPolyfill: WebSocket as any
+        })
+        let cb = () => {
+            let root = store.getMap()
+            if (true) {
+                convertJsonToYjs({
+                    rest: [],
+                    websocket: [],
+                }, root, 'tables')
+            }
+            wsProvider.off('sync', cb)
+            resolve(null)
+        }
+        wsProvider.on('sync', cb)
+    })
+}
 
 export function getTable<T extends TableName>(name: T) {
+    let tables = store.getMap().get('tables') as JsonToYjs<{
+        rest: TableTypeMap['rest']['full'][],
+        websocket: TableTypeMap['websocket']['full'][],
+    }>
     return {
-        set: (val: TSet<T>) => {
-            let v = getRawData(val)
-            console.log(name, v.id, v)
-            store.setRow(name, v.id, v)
-        },
-        get: (id: string) => {
-            let row = store.getRow(name, id) as TFull<T>
-            if (!row || !row.id) return
-            return getExtendedData(row, name)
-        },
-        useList: () => {
-            const table = useTable(name, store)
-            console.log(table)
-            return Object.values(table)
-                .map(row => getExtendedData(row as TFull<T>, name))
-                .sort((a, b) => {
-                    if (a.url < b.url) {
-                        return -1;
-                    }
-                    if (a.url > b.url) {
-                        return 1;
-                    }
-                    return 0;
-                })
-        }
-    }
+        list,
+        create: (val: TableTypeMap[T]['omit']) => {
+            let parent = list()
+            if (name === 'rest') {
+                let full: TableTypeMap['rest']['full'] = {
+                    ...val,
+                    historyMessages: { limit: 20, list: [] },
+                    inputMessages: { limit: 1, list: [] },
+                    lastConnectTime: new Date().getTime(),
+                    sending: '',
+                    autoRespondMessage: '',
+                    detain: false,
+                    json: true,
+                    type: name,
+                }
 
-    function getRawData(val: TSet<T>): TFull<T> {
-        let { historyMessages, inputMessages } = val
-        let v = { ...val } as any as TFull<T>
-        for (const k in v) {
-            if (!['string', 'number', 'boolean'].includes(typeof v[k])) delete v[k]
-        }
-        v.historyMessagesJson = JSON.stringify(historyMessages || parseMessages())
-        v.inputMessagesJson = JSON.stringify(inputMessages || parseMessages())
-        v.connectTime = v.connectTime || new Date().getTime()
-        return v
-    }
-}
-
-export function getExtendedData<T extends TableName>(row: TFull<T>, table: T) {
-    let rtn = {
-        ...row,
-        historyMessages: {
-            ...parseMessages(row.historyMessagesJson),
-            unshift: (msg: Omit<MessageItem, 'time'>) => {
-                rtn.historyMessages.list.unshift({
-                    ...msg,
-                    time: new Date().getTime()
-                })
-                rtn.historyMessages.list.length = rtn.historyMessages.limit
+                const ymap = convertJsonToYjs(full, parent)
+                return ymap
+            } else if (name === 'websocket') {
+                let full: TableTypeMap['websocket']['full'] = {
+                    ...val,
+                    historyMessages: { limit: 20, list: [] },
+                    inputMessages: { limit: 1, list: [] },
+                    lastConnectTime: new Date().getTime(),
+                    sending: '',
+                    autoRespondMessage: '',
+                    initRespondMessage: '',
+                    type: name as 'websocket',
+                }
+                const ymap = convertJsonToYjs(full, parent)
+                return ymap
+            } else {
+                const error: never = name;
+                throw new Error('Unhandled table name: ' + error);
             }
-        },
-        inputMessages: parseMessages(row.inputMessagesJson),
-        getObservable: <T1 extends keyof TFullData<T>>(cellName: T1): Observable<TFullData<T>[T1]> => fromEventPattern(
-            (handler) => store.addCellListener(
-                table, row.id, cellName as string,
-                (_0, _1, _2, _3, newCell) => handler(newCell)
-            ),
-            (_, listenerId) => store.delListener(listenerId)
-        ),
-        updateCell: <T1 extends keyof TFullData<T> & string>(cellName: T1, value: TFullData<T>[T1] & Cell) => {
-            store.setCell(table, row.id, cellName, value)
-        },
-        save: () => {
-            getTable(table).set(rtn)
         }
     }
-    return rtn
+    function list() {
+        return tables.get(name)
+    }
 }
 
 
-export function parseMessages(str?: string): MessagesObject {
-    if (str) return JSON.parse(str)
-    return {
-        limit: 3,
-        list: [],
+type JsonToYjs<T> =
+    T extends string ? Y.Text :
+    T extends number | boolean ? T :
+    T extends Array<infer U> ? Y.Array<JsonToYjs<U>> :
+    T extends Record<string, any> ? ({
+        get: <K extends keyof T>(str: K) => JsonToYjs<T[K]>
+    }) & Omit<Y.Map<any>, 'get'> :
+    never;
+
+function convertJsonToYjs<T>(value: T, parent: Y.Map<any> | Y.Array<any>, key = ''): JsonToYjs<T> {
+
+    if (Array.isArray(value)) {
+        const yArray = new Y.Array<JsonToYjs<any>>();
+        addToParent(yArray);
+        (value as Array<any>).forEach((item) => {
+            convertJsonToYjs(item, yArray)
+        });
+        return yArray as JsonToYjs<T>;
+    } else if (typeof value === 'object' && value !== null) {
+        const yMap = new Y.Map<{ [K in keyof T]: JsonToYjs<T[K]> }>();
+        addToParent(yMap)
+        Object.entries(value as Record<string, any>).forEach(([key, val]) => {
+            convertJsonToYjs(val, yMap, key)
+        });
+        return yMap as unknown as JsonToYjs<T>;
+    } else if (typeof value === 'string') {
+        let txt = new Y.Text(value) as JsonToYjs<T>;
+        addToParent(txt)
+        return txt
+    } else if (typeof value === 'number' || typeof value === 'boolean') {
+        addToParent(value)
+        return value as JsonToYjs<T>;
+    } else {
+        throw new Error(`Unsupported JSON value type: ${typeof value}`);
+    }
+
+    function addToParent(item: any) {
+        if (parent instanceof Y.Array) {
+            parent.push([item])
+        } else {
+            parent.set(key, item)
+        }
     }
 }

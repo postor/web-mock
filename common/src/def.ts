@@ -1,56 +1,53 @@
-import { Row } from "tinybase/store"
 
-interface OptionalData {
-    historyMessagesJson: string
-    inputMessagesJson: string
-    connectTime: number
+export type SharedOptionalData = {
+    lastConnectTime: number
     autoRespondMessage: string
     sending: string
-    sendInput: string
+    inputMessages: {
+        limit: number
+        list: {
+            message: string
+        }[]
+    }
+    historyMessages: {
+        limit: number
+        list: {
+            message: string
+            type: 'sent' | 'received'
+            time: number
+        }[]
+    }
 }
 
-type PartialOrFull = {
-    partial: Partial<OptionalData>
-    full: OptionalData,
-    omit: {},
-}
-
-
-export type SharedData<T extends keyof PartialOrFull> = {
+export type SharedData = {
     id: string
     url: string
-} & PartialOrFull[T]
+}
 
-export type IWebSocketData<T extends keyof PartialOrFull = 'full'> = SharedData<T> & {
+type WebsocketOptionalData = {
     type: 'websocket'
     initRespondMessage: string
-};
+}
 
-export type IRestData<T extends keyof PartialOrFull = 'full'> = SharedData<T> & {
+export type IWebSocketDataCreate = SharedData
+export type IWebSocketData = IWebSocketDataCreate & SharedOptionalData & WebsocketOptionalData
+
+type RestOptionalData = {
     type: 'rest'
     detain: boolean
     json: boolean
 }
 
+export type IRestDataCreate = SharedData
+export type IRestData = IRestDataCreate & SharedOptionalData & RestOptionalData
+
 export type TableTypeMap = {
     websocket: {
-        [T in keyof PartialOrFull]: {
-            data: IWebSocketData<T>
-            row: IWebSocketData<T> & Row
-        }
+        omit: IWebSocketDataCreate,
+        full: IWebSocketData
     }
     rest: {
-        [T in keyof PartialOrFull]: {
-            data: IRestData<T>
-            row: IRestData<T> & Row
-        }
+        omit: IRestDataCreate,
+        full: IRestData
     }
-}
-
-export enum MockEventType {
-    connect = 'connect',
-    disconnect = 'disconnect',
-    request = 'request',
-    send = 'send',
-    update = 'send',
 }

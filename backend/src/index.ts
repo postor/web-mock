@@ -1,9 +1,10 @@
 import express = require('express')
-import { init, restapis, websockets, store } from '@web-mock/common/src/client'
+import { init, getTable, store } from '@web-mock/common/src/client'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 import { filter, find, fromEvent, interval, map, merge, of, switchMap, takeUntil, tap, throttle } from 'rxjs'
 import ws = require('ws')
+import { setTimeout } from 'node:timers/promises'
 
 const app = express()
 const server = createServer(app)
@@ -17,6 +18,7 @@ app.use(express.json())
 
 // Universal route handler for '/'
 app.use('/', (req, res, next) => {
+    const restapis = getTable('rest')
     if (req.headers['upgrade'] && req.headers['upgrade'].toLowerCase() === 'websocket') {
         return next(); // Let the `upgrade` event handler take over
     }
@@ -50,10 +52,11 @@ app.use('/', (req, res, next) => {
         })
         row.save()
     } else if (row.detain) {
+        console.log([row.type, row.id, 'sending'])
         let listenerId = store.addCellListener(row.type, row.id, 'sending', (
             _0, _1, _2, _3, sendingJson: string
         ) => {
-            if (!sendingJson) return
+            if (!sendingJson) return console.log({ sendingJson })
             const { msg: sending } = JSON.parse(sendingJson)
             row = restapis.get(req.url)
             console.log(`[mock][msg]:${sending}`)
@@ -85,6 +88,7 @@ app.use('/', (req, res, next) => {
 
 // Handle WebSocket connections
 wss.on('connection', (ws, req) => {
+    const websockets = getTable('websocket')
     const id = randomUUID()
     let row = websockets.get(req.url)
     if (!row) {
@@ -138,7 +142,9 @@ wss.on('connection', (ws, req) => {
 main()
 
 async function main() {
+    console.log('backend init...')
     await init()
+    await setTimeout(2000)
     server.listen(PORT, () => console.log(`backend server started on ${PORT}`))
 }
 
