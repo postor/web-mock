@@ -20,7 +20,7 @@ export default defineConfig({
       getRoutesFile: /auto-get-routes\.ts/,
     }),
     EnvironmentPlugin({
-      WS_TINYBASE: process.env.WS_TINYBASE || 'ws://localhost:8050',
+      WS_TINYBASE: process.env.WS_TINYBASE || 'ws://localhost:1234',
     }),
   ],
   resolve: {

@@ -1,28 +1,39 @@
 import { useRecoilState, useRecoilValue } from "recoil";
-import { useTinyBase } from "../../../tools/TinyBaseProvider";
+import { useDb, useDbJson } from "../../../tools/DbProvider";
 import { selectedId, urlFilter } from "../../../tools/store";
-import { getExtendedData } from "@web-mock/common/src/client";
+import { useEffect } from "react";
+import { getTable } from "@web-mock/common/src/client";
+
+const getRests = () => getTable('rest').list()
+const getWss = () => getTable('websocket').list()
 
 const LeftNav = () => {
-    const { websockets, restapis } = useTinyBase();
+    const restapis = useDbJson(getRests,[])
+    const websockets = useDbJson(getWss,[])
     const filter = useRecoilValue(urlFilter);
-
     return (
         <div className="flex flex-col space-y-4 p-4 bg-gray-100 rounded-lg shadow-md">
             <Filter />
             <ConnectionList
                 title="Websockets"
-                list={filterX(websockets.useList(), filter)}
+                list={filterX(websockets, filter)}
             />
             <ConnectionList
                 title="REST APIs"
-                list={filterX(restapis.useList(), filter)}
+                list={filterX(restapis, filter)}
             />
         </div>
     );
 };
 
 export default LeftNav;
+
+interface WithUrl {
+    get(key: 'url'): string;
+    get(key: 'id'): string;
+    get(key: 'type'): string;
+    get(key: string): any;
+}
 
 function Filter() {
     const [filter, setFilter] = useRecoilState(urlFilter);
@@ -39,9 +50,8 @@ function Filter() {
     );
 }
 
-type ListItem = ReturnType<typeof getExtendedData>;
 
-function ConnectionList<T extends ListItem>({ list, title }: { list: T[], title: string }) {
+function ConnectionList<T extends WithUrl>({ list, title }: { list: T[], title: string }) {
     const [{ id }, setId] = useRecoilState(selectedId);
 
     return (
@@ -50,15 +60,15 @@ function ConnectionList<T extends ListItem>({ list, title }: { list: T[], title:
             <ul className="space-y-2">
                 {list.map((x) => (
                     <li
-                        key={x.id}
-                        className={`p-3 rounded-lg cursor-pointer transition-colors ${id === x.id ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'}`}
+                        key={x.get('id')}
+                        className={`p-3 rounded-lg cursor-pointer transition-colors ${id === x.get('id') ? 'bg-blue-500 text-white' : 'bg-white hover:bg-gray-100'}`}
                         onClick={() => setId({
-                            id: x.id,
-                            table: x.type,
+                            id: x.get('id'),
+                            table: x.get('type') as any,
                         })}
                     >
-                        <h5 className="font-medium">{x.url}</h5>
-                        {x.type === 'websocket' && <p className="text-sm text-gray-500">{x.id}</p>}
+                        <h5 className="font-medium">{x.get('url')}</h5>
+                        {x.get('type') === 'websocket' && <p className="text-sm text-gray-500">{x.get('id')}</p>}
                     </li>
                 ))}
             </ul>
@@ -66,11 +76,11 @@ function ConnectionList<T extends ListItem>({ list, title }: { list: T[], title:
     );
 }
 
-function filterX<T extends ListItem>(list: T[], filter: string) {
+function filterX<T extends WithUrl>(list: T[], filter: string) {
     if (!filter) return list
     if (filter.startsWith('/') && filter.endsWith('/')) {
         const regex = new RegExp(filter.substring(1, filter.length - 1));
-        return list.filter(item => regex.test(item.url));
+        return list.filter(item => regex.test(item.get('url')));
     }
-    return list.filter(item => item.url.includes(filter))
+    return list.filter(item => item.get('url').includes(filter))
 }

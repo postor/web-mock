@@ -2,7 +2,7 @@ import express = require('express')
 import { init, getTable, store } from '@web-mock/common/src/client'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
-import { filter, find, fromEvent, interval, map, merge, of, switchMap, takeUntil, tap, throttle } from 'rxjs'
+import { filter, find, fromEvent, fromEventPattern, interval, map, merge, of, switchMap, takeUntil, tap, throttle } from 'rxjs'
 import ws = require('ws')
 import { setTimeout } from 'node:timers/promises'
 
@@ -22,66 +22,47 @@ app.use('/', (req, res, next) => {
     if (req.headers['upgrade'] && req.headers['upgrade'].toLowerCase() === 'websocket') {
         return next(); // Let the `upgrade` event handler take over
     }
-    console.log(`[client][msg]:${req.url}:${JSON.stringify(req.body)}`)
+    console.log(`[client][msg][req]:${req.url}:${JSON.stringify(req.body)}`)
     let row = restapis.get(req.url)
     if (!row) {
-        restapis.set({
-            id: req.url, url: req.url, type: 'rest', sending: '',
-            sendInput: '', initRespondMessage: '', autoRespondMessage: '',
-            inputMessagesJson: '', historyMessagesJson: '', detain: false,
-            json: true,
+        restapis.create({
+            id: req.url, url: req.url
         })
         row = restapis.get(req.url)
     }
-    row.historyMessages.unshift({
-        msg: JSON.stringify(req.body, null, 2),
-        type: 'received',
-    })
-    row.save()
-    if (row.autoRespondMessage) {
-        console.log(`[mock][msg]:${row.autoRespondMessage}`)
-        if (row.json) {
-            res.json(JSON.parse(row.autoRespondMessage))
+    restapis.pushHistoryMessage(req.url, JSON.stringify(req.body, null, 2), 'received')
+    let autoResponse = row.get('autoRespondMessage')
+    if (autoResponse) {
+        console.log(`[mock][msg]:${autoResponse}`)
+        if (row.get('json')) {
+            res.json(JSON.parse(autoResponse))
         } else {
-            res.send(row.autoRespondMessage)
+            res.send(autoResponse)
         }
         row = restapis.get(req.url)
-        row.historyMessages.unshift({
-            msg: row.autoRespondMessage,
-            type: 'sent',
-        })
-        row.save()
-    } else if (row.detain) {
-        console.log([row.type, row.id, 'sending'])
-        let listenerId = store.addCellListener(row.type, row.id, 'sending', (
-            _0, _1, _2, _3, sendingJson: string
-        ) => {
-            if (!sendingJson) return console.log({ sendingJson })
-            const { msg: sending } = JSON.parse(sendingJson)
-            row = restapis.get(req.url)
-            console.log(`[mock][msg]:${sending}`)
-            row.sending = ''
-            row.historyMessages.unshift({
-                msg: sending,
-                type: 'sent',
+        restapis.pushHistoryMessage(req.url, autoResponse, 'sent')
+    } else if (row.get('detain')) {
+        const cb = event => {
+            event.changes.keys.forEach((change, key) => {
+                const sending = row.get('sending')
+                if (sending) {
+                    restapis.pushHistoryMessage(req.url, sending, 'sent')
+                    row.set('sending', '')
+                    row.unobserve(cb)
+                    console.log(`[mock][msg]:${sending}`)
+                    if (row.get('json')) {
+                        res.json(JSON.parse(sending))
+                    } else {
+                        res.send(sending)
+                    }
+                }
             })
-            row.save()
-            store.delListener(listenerId)
-            if (row.json) {
-                console.log({ sending })
-                res.json(JSON.parse(sending))
-            } else {
-                res.send(sending)
-            }
-        })
+        }
+        row.observe(cb)
     } else {
         let rtn = { message: 'Mock response' }
-        row.historyMessages.unshift({
-            msg: JSON.stringify(rtn),
-            type: 'sent',
-        })
-        row.save()
-        // Handle REST request
+        restapis.pushHistoryMessage(req.url, JSON.stringify(rtn), 'sent')
+        console.log(`[mock][msg]:${JSON.stringify(rtn)}`)
         res.json(rtn);
     }
 })
@@ -92,42 +73,45 @@ wss.on('connection', (ws, req) => {
     const id = randomUUID()
     let row = websockets.get(req.url)
     if (!row) {
-        websockets.set({
-            id, url: req.url, type: 'websocket', sending: '',
-            sendInput: '', initRespondMessage: '', autoRespondMessage: '',
-            inputMessagesJson: '', historyMessagesJson: '',
-        })
-        row = websockets.get(req.url)
+        websockets.create({ id, url: req.url, })
+        row = websockets.get(id)
     }
 
     of(null).pipe(
         // init message 
-        tap(() => (row.initRespondMessage && ws.send(row.initRespondMessage))),
+        tap(() => {
+            const initMessage = row.get('initMessage')
+            if (initMessage) {
+                ws.send(initMessage)
+                console.log(`[mock][msg]:${initMessage}`)
+                websockets.pushHistoryMessage(req.url, initMessage, 'sent')
+            }
+        }),
         switchMap(() => merge(
             // receive message
             fromEvent(ws, 'message').pipe(
                 map((x: MessageEvent) => x.data as string),
                 tap(msg => console.log(`[client][msg]:${req.url}:${msg}`)),
                 tap(msg => {
-                    let row = websockets.get(ws.url)
-                    row.historyMessages.unshift({ msg, type: 'received' })
-                    row.save()
+                    console.log(`[mock][msg][receive]:${msg}`)
+                    websockets.pushHistoryMessage(id, msg, 'received')
                 })
             ),
             // send message
-            row.getObservable('sending').pipe(
+            fromEventPattern(
+                handler => row.observe(handler),
+                handler => row.unobserve(handler)
+            ).pipe(
+                map(_ => row.get('sending')),
                 filter(sending => !!sending),
                 throttle(() => interval(500)),
                 tap(sending => {
                     console.log(`[mock][msg]:${req.url}:${sending}`)
                     ws.send(sending)
-                    row = websockets.get(req.url)
-                    row.sending = ''
-                    row.historyMessages.unshift({
-                        msg: sending,
-                        type: 'sent',
-                    })
-                    row.save()
+                    row = websockets.get(id)
+                    row.set('sending', '')
+                    console.log(`[mock][msg]:${sending}`)
+                    websockets.pushHistoryMessage(id, sending, 'sent')
                 }),
             )
         )),

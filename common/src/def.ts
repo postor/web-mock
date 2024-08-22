@@ -1,21 +1,24 @@
 
+export type MessageType = 'sent' | 'received'
+export type HistoryMessageItem = {
+    message: string
+    type: MessageType
+    time: number
+}
+export type InputMessageItem = {
+    message: string
+}
 export type SharedOptionalData = {
     lastConnectTime: number
     autoRespondMessage: string
     sending: string
     inputMessages: {
         limit: number
-        list: {
-            message: string
-        }[]
+        list: InputMessageItem[]
     }
     historyMessages: {
         limit: number
-        list: {
-            message: string
-            type: 'sent' | 'received'
-            time: number
-        }[]
+        list: HistoryMessageItem[]
     }
 }
 
@@ -26,7 +29,7 @@ export type SharedData = {
 
 type WebsocketOptionalData = {
     type: 'websocket'
-    initRespondMessage: string
+    initMessage: string
 }
 
 export type IWebSocketDataCreate = SharedData
