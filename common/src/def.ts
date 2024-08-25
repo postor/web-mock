@@ -30,6 +30,7 @@ export type SharedData = {
 type WebsocketOptionalData = {
     type: 'websocket'
     initMessage: string
+    connections: Record<string, SharedOptionalData>
 }
 
 export type IWebSocketDataCreate = SharedData
@@ -38,6 +39,7 @@ export type IWebSocketData = IWebSocketDataCreate & SharedOptionalData & Websock
 type RestOptionalData = {
     type: 'rest'
     detain: boolean
+    detaining: boolean
     json: boolean
 }
 

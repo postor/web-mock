@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { init, store, JsonToYjs } from '@web-mock/common/src/client'
+import { init, store, JsonToYjs, YjsToJson } from '@web-mock/common/src/client'
+import * as Y from 'yjs'
 
 // @ts-ignore
 window.store = store
@@ -29,20 +30,27 @@ export function TinyBaseProvider({ children }) {
 }
 
 type UnWrapFn<T> = T extends () => any ? ReturnType<T> : T
-type UseDbJsonRtn<T extends (JsonToYjs<Array<any>> | (() => JsonToYjs<Array<any>>))> = ReturnType<UnWrapFn<T>['toJSON']>
+type UseDbJsonRtn<T extends (JsonToYjs<any> | (() => JsonToYjs<any>))> = [
+    YjsToJson<UnWrapFn<T>>, UnWrapFn<T>
+]
 
-export function useDbJson<T extends (JsonToYjs<Array<any>> | (() => JsonToYjs<Array<any>>))>(fn: T, defaultValue: UseDbJsonRtn<T>): ReturnType<UnWrapFn<T>['toArray']> {
+export function useDbJson<T extends (JsonToYjs<any> | (() => JsonToYjs<any>))>(fn: T, defaultValue: YjsToJson<UnWrapFn<T>>): UseDbJsonRtn<T> {
     const { inited } = useContext(Ctx)
-    let [rtn, setRtn] = useState<UseDbJsonRtn<T>>(defaultValue as any)
+    let [rtn, setRtn] = useState<YjsToJson<UnWrapFn<T>>>(defaultValue as any)
+    let [yData, setYData] = useState(defaultValue as any)
     useMemo(() => {
         if (!inited) return
-        let arr = typeof fn === 'function' ? fn() : fn as JsonToYjs<Array<any>>
-        setRtn(arr.toJSON() as any)
-        console.log(arr.toJSON())
-        arr.observe(() => {
-            setRtn(arr.toJSON() as any)
-        })
+        let yobj: Y.Map<any> | Y.Array<any> = (typeof fn === 'function' ? fn() : fn) as any
+        setRtn(yobj.toJSON() as any)
+        setYData(yobj as any)
+        const cb = () => {
+            console.log(`observe:`, yobj, yobj.toJSON())
+            setRtn(yobj.toJSON() as any)
+        }
+        console.log(`observe listen:`, yobj)
+        yobj.observeDeep(cb)
+        return () => yobj.unobserveDeep(cb)
     }, [inited, fn])
 
-    return rtn
+    return [rtn, yData]
 }
