@@ -2,16 +2,16 @@
     "compilerOptions": {
         "baseUrl": ".",
         "paths": {
-            "*": [
-                "common/src/*",
-                "frontend/src/*",
-                "backend/src/*",
-                "cli/src/*",
-                "db/src/*"
-            ]
+          "@web-mock/common": [
+            "../common/src"
+          ],
+          "@web-mock/common/*": [
+            "../common/src/*"
+          ]
         },
         "esModuleInterop": true,
-        "skipLibCheck": true
+        "skipLibCheck": true,
+        "noEmit": true
     },
     "references": [
         {

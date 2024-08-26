@@ -1,4 +1,4 @@
-import { getTable, JsonToYjs } from '@web-mock/common/src/client';
+import { getTable, JsonToYjs } from '@web-mock/common';
 import { HistoryMessageItem, InputMessageItem } from "@web-mock/common/src/def";
 import { useMemo } from "react";
 import TimeAgo from 'react-timeago';

@@ -6,7 +6,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "cross-env YPERSISTENCE=db-files PORT=1234 y-websocket",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "cross-env YPERSISTENCE=db-files PORT=1234 y-websocket"
   },
   "author": "",
   "license": "ISC",

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { init, store, JsonToYjs } from '@web-mock/common/src/client'
+import { init, store, JsonToYjs } from '@web-mock/common'
 
 // @ts-ignore
 window.store = store

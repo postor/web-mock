@@ -1,8 +1,7 @@
+import { getTable } from "@web-mock/common";
 import { useRecoilState, useRecoilValue } from "recoil";
-import { useDb, useDbJson } from "../../../tools/DbProvider";
+import { useDbJson } from "../../../tools/DbProvider";
 import { selectedId, urlFilter } from "../../../tools/store";
-import { useEffect } from "react";
-import { getTable } from "@web-mock/common/src/client";
 
 const getRests = () => getTable('rest').list()
 const getWss = () => getTable('websocket').list()

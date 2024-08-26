@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  db:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: postor/webmock-base
+    volumes:
+      - db_data:/app/db/
+    ports:
+      - "1234:1234"
+    command: npm -w db run start
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: postor/webmock-base
+    environment:
+      WS_TINYBASE: 
+    depends_on:
+      - db
+    ports:
+      - "3000:3000"
+    command: npm -w backend run start
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: postor/webmock-base
+    depends_on:
+      - backend
+    ports:
+      - "3020:3020"
+    command: npm -w frontend run start
+
+volumes:
+  db_data:
+

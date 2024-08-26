@@ -1,4 +1,5 @@
 node_modules
-dist
-db-files
+**/node_modules
+**/dist
+**/db-files
 /test.*
