@@ -1,5 +1,5 @@
 import express = require('express')
-import { getTable, init } from '@web-mock/common'
+import { convertJsonToYjs, getTable, init } from '@web-mock/common'
 import { randomUUID } from 'node:crypto'
 import { createServer } from 'node:http'
 import { setTimeout } from 'node:timers/promises'
@@ -42,23 +42,24 @@ app.use('/', (req, res, next) => {
         row = restapis.get(req.url)
         restapis.pushHistoryMessage(req.url, autoResponse, 'sent')
     } else if (row.get('detain')) {
+        row.set('detaining', true)
         const cb = event => {
-            event.changes.keys.forEach((change, key) => {
-                const sending = row.get('sending')
-                if (sending) {
-                    restapis.pushHistoryMessage(req.url, sending, 'sent')
-                    row.set('sending', '')
-                    row.unobserve(cb)
-                    console.log(`[mock][msg]:${sending}`)
-                    if (row.get('json')) {
-                        res.json(JSON.parse(sending))
-                    } else {
-                        res.send(sending)
-                    }
+            const sending = row.get('sending')
+            if (sending) {
+                restapis.pushHistoryMessage(req.url, sending, 'sent')
+                row.set('sending', '')
+                row.set('detaining', false)
+                row.unobserveDeep(cb)
+                console.log(`[mock][msg]:${sending}`)
+                if (row.get('json')) {
+                    console.log(`res.json`, JSON.parse(sending))
+                    res.json(JSON.parse(sending))
+                } else {
+                    res.send(sending)
                 }
-            })
+            }
         }
-        row.observe(cb)
+        row.observeDeep(cb)
     } else {
         let rtn = { message: 'Mock response' }
         restapis.pushHistoryMessage(req.url, JSON.stringify(rtn), 'sent')
@@ -73,8 +74,11 @@ wss.on('connection', (ws, req) => {
     const id = randomUUID()
     let row = websockets.get(req.url)
     if (!row) {
-        websockets.create({ id, url: req.url, })
-        row = websockets.get(id)
+        websockets.create({ id: req.url, url: req.url, }, id)
+        row = websockets.get(req.url)
+    } else {
+        if (!row.get('connections').get(id))
+            websockets.addConnection(req.url, id)
     }
 
     of(null).pipe(
@@ -84,7 +88,7 @@ wss.on('connection', (ws, req) => {
             if (initMessage) {
                 ws.send(initMessage)
                 console.log(`[mock][msg]:${initMessage}`)
-                websockets.pushHistoryMessage(req.url, initMessage, 'sent')
+                websockets.pushHistoryMessage(req.url, initMessage, 'sent', id)
             }
         }),
         switchMap(() => merge(
@@ -94,31 +98,39 @@ wss.on('connection', (ws, req) => {
                 tap(msg => console.log(`[client][msg]:${req.url}:${msg}`)),
                 tap(msg => {
                     console.log(`[mock][msg][receive]:${msg}`)
-                    websockets.pushHistoryMessage(id, msg, 'received')
+                    websockets.pushHistoryMessage(req.url, msg, 'received', id)
                 })
             ),
             // send message
-            fromEventPattern(
-                handler => row.observe(handler),
-                handler => row.unobserve(handler)
-            ).pipe(
-                map(_ => row.get('sending')),
-                filter(sending => !!sending),
-                throttle(() => interval(500)),
-                tap(sending => {
-                    console.log(`[mock][msg]:${req.url}:${sending}`)
-                    ws.send(sending)
-                    row = websockets.get(id)
-                    row.set('sending', '')
-                    console.log(`[mock][msg]:${sending}`)
-                    websockets.pushHistoryMessage(id, sending, 'sent')
-                }),
+            of(row.get('connections').get(id)).pipe(
+                // tap(row => console.log(row.toJSON())),
+                switchMap((row) => fromEventPattern(
+                    handler => row.observeDeep(handler),
+                    handler => row.unobserveDeep(handler)
+                ).pipe(
+                    // tap(_ => console.log(row.toJSON())),
+                    map(_ => row.get('sending')),
+                    filter(sending => !!sending),
+                    throttle(() => interval(500)),
+                    tap(sending => {
+                        console.log(`[mock][msg]:${req.url}:${sending}`)
+                        ws.send(sending)
+                        row.set('sending', '')
+                        console.log(`[mock][msg]:${sending}`)
+                        websockets.pushHistoryMessage(req.url, sending, 'sent', id)
+                    }),
+                ),
+                )
             )
         )),
-        takeUntil(merge(
-            fromEvent(ws, 'close'),
-            fromEvent(ws, 'error'),
-        )),
+        takeUntil(
+            merge(
+                fromEvent(ws, 'close'),
+                fromEvent(ws, 'error'),
+            ).pipe(tap(() => {
+                websockets.removeConnection(req.url, id)
+            }))
+        ),
     ).subscribe()
 
 })
@@ -129,6 +141,7 @@ async function main() {
     console.log('backend init...')
     await init()
     await setTimeout(2000)
+    getTable('websocket').list().forEach(x => convertJsonToYjs({}, x, 'connections'))
     server.listen(PORT, () => console.log(`backend server started on ${PORT}`))
 }
 

@@ -13,7 +13,7 @@ export default () => {
                 <nav className="w-64 bg-gray-100 p-4 border-r">
                     <LeftNav />
                 </nav>
-                <main className="flex-1 p-6 bg-white">
+                <main className="flex-1 p-6 bg-gray-50">
                     <Outlet />
                 </main>
             </div>

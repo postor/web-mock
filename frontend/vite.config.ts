@@ -25,7 +25,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      // '@mono-test/other': path.resolve(__dirname, '../workspace-other/src'),
+      '@web-mock/common': path.resolve(__dirname, '../common/src'),
     },
   },
   build: {

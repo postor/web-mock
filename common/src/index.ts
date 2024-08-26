@@ -1,5 +1,3 @@
 export * from './client'
 
-export function test(){
-    
-}
+export * from './def'

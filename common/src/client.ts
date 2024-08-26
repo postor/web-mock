@@ -16,12 +16,15 @@ export async function init() {
         })
         let cb = () => {
             let root = store.getMap()
+
+            // init tables
             if (!root.get('tables')) {
                 convertJsonToYjs({
                     rest: [],
                     websocket: [],
                 }, root, 'tables')
             }
+            // unregister
             wsProvider.off('sync', cb)
             resolve(null)
         }
@@ -30,28 +33,52 @@ export async function init() {
 }
 
 export function getTable<T extends TableName>(name: T) {
+
+    const inputMessages = {
+        limit: 3,
+        list: new Array(3).fill(0).map(() => ({
+            message: ''
+        }))
+    }
+
     let tables = store.getMap().get('tables') as JsonToYjs<{
         rest: TableTypeMap['rest']['full'][],
         websocket: TableTypeMap['websocket']['full'][],
     }>
+
     return {
         list,
         create,
         get,
         pushHistoryMessage,
+        addConnection,
+        removeConnection,
     }
+
+
+
     function get(id: string) {
-        return list().toArray().find(x => x.get('id') === id) as JsonToYjs<TableTypeMap[T]['full']>
+        // @ts-ignore
+        return list().toArray().find((x) => x.get('id') === id) as JsonToYjs<TableTypeMap[T]['full']>
     }
 
     function list() {
         return tables.get(name)
     }
 
-    function pushHistoryMessage(id: string, msg: string, type: MessageType) {
+    function pushHistoryMessage(...args: T extends 'rest'
+        ? [id: string, msg: string, type: MessageType]
+        : [id: string, msg: string, type: MessageType, websocketId: string]
+    ) {
+        const [id, msg, type, websocketId = undefined] = args
         const row = get(id)
-        // @ts-ignore
-        const historyMessages = row.get('historyMessages')
+        const historyMessages: JsonToYjs<{
+            limit: number
+            list: HistoryMessageItem[]
+        }> = (name === 'rest')
+                ? (row as JsonToYjs<TableTypeMap['rest']['full']>).get('historyMessages')
+                : (row as JsonToYjs<TableTypeMap['websocket']['full']>).get('connections').get(websocketId).get('historyMessages')
+
         const msgs = historyMessages.get('list')
         convertJsonToYjs({
             message: msg,
@@ -61,21 +88,43 @@ export function getTable<T extends TableName>(name: T) {
         if (msgs.length > historyMessages.get('limit')) {
             msgs.delete(0, msgs.length - historyMessages.get('limit'))
         }
+        row.set('lastConnectTime', new Date().getTime())
     }
 
-    function create(val: TableTypeMap[T]['omit']) {
+    function addConnection(id: string, websocketId: string) {
+        let row = get(id) as T extends 'websocket' ? ReturnType<typeof get> : never
+        convertJsonToYjs({
+            historyMessages: { limit: 20, list: [] },
+            inputMessages,
+            lastConnectTime: new Date().getTime(),
+            sending: '',
+            autoRespondMessage: '',
+        }, row.get('connections'), websocketId)
+    }
+
+    function removeConnection(id: string, websocketId: string) {
+        let row = get(id) as T extends 'websocket' ? ReturnType<typeof get> : never
+        row.get('connections').delete(websocketId)
+    }
+
+    function create(...args: T extends 'rest'
+        ? [val: TableTypeMap[T]['omit']]
+        : [val: TableTypeMap[T]['omit'], socketId: string]
+    ) {
+        const [val, socketId = undefined] = args
         let parent = list()
         if (name === 'rest') {
             let full: TableTypeMap['rest']['full'] = {
                 ...val,
                 historyMessages: { limit: 20, list: [] },
-                inputMessages: { limit: 1, list: [] },
+                inputMessages,
                 lastConnectTime: new Date().getTime(),
                 sending: '',
                 autoRespondMessage: '',
                 detain: false,
                 json: true,
                 type: name,
+                detaining: false,
             }
             const ymap = convertJsonToYjs(full, parent)
             return ymap as JsonToYjs<TableTypeMap[T]['full']>
@@ -83,14 +132,16 @@ export function getTable<T extends TableName>(name: T) {
             let full: TableTypeMap['websocket']['full'] = {
                 ...val,
                 historyMessages: { limit: 20, list: [] },
-                inputMessages: { limit: 1, list: [] },
+                inputMessages,
                 lastConnectTime: new Date().getTime(),
                 sending: '',
                 autoRespondMessage: '',
                 initMessage: '',
                 type: name as 'websocket',
+                connections: {},
             }
             const ymap = convertJsonToYjs(full, parent)
+            addConnection(val.id, socketId)
             return ymap as JsonToYjs<TableTypeMap[T]['full']>
         } else {
             const error: never = name;
@@ -103,16 +154,22 @@ export function getTable<T extends TableName>(name: T) {
 
 export type JsonToYjs<T> =
     T extends string | number | boolean ? T :
-    T extends Array<infer U> ? Y.Array<JsonToYjs<U>> :
+    T extends Array<infer U> ? Y.Array<JsonToYjs<U>> & { __typing: T } :
     T extends Record<string, any> ? ({
-        get: <K extends keyof T>(str: K) => JsonToYjs<T[K]>
+        get: <K extends keyof T>(str: K) => JsonToYjs<T[K]>,
+        __typing: T,
     }) & Omit<Y.Map<any>, 'get'> :
     never;
 
-function convertJsonToYjs<T>(value: T, parent: Y.Array<any> | JsonToYjs<any>): JsonToYjs<T>;
-function convertJsonToYjs<T>(value: T, parent: Y.Map<any> | JsonToYjs<any>, key: string): JsonToYjs<T>;
-function convertJsonToYjs<T>(value: T, parent: Y.Map<any> | JsonToYjs<any>, key?: string, unshift?: boolean): JsonToYjs<T>;
-function convertJsonToYjs<T>(value: T, parent: Y.Map<any> | Y.Array<any> | JsonToYjs<any>, key?: string, unshift = false): JsonToYjs<T> {
+export type YjsToJson<T extends JsonToYjs<any>> =
+    T extends string | number | boolean ? T :
+    T extends { __typing: infer U } ? U :
+    never;
+
+export function convertJsonToYjs<T>(value: T, parent: Y.Array<any> | JsonToYjs<any>): JsonToYjs<T>;
+export function convertJsonToYjs<T>(value: T, parent: Y.Map<any> | JsonToYjs<any>, key: string): JsonToYjs<T>;
+export function convertJsonToYjs<T>(value: T, parent: Y.Map<any> | JsonToYjs<any>, key?: string, unshift?: boolean): JsonToYjs<T>;
+export function convertJsonToYjs<T>(value: T, parent: Y.Map<any> | Y.Array<any> | JsonToYjs<any>, key?: string, unshift = false): JsonToYjs<T> {
     if (Array.isArray(value)) {
         const yArray = new Y.Array<JsonToYjs<any>>();
         addToParent(yArray);
