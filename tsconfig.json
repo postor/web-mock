@@ -18,16 +18,7 @@
             "path": "@web-mock/common"
         },
         {
-            "path": "@web-mock/frontend"
-        },
-        {
-            "path": "@web-mock/backend"
-        },
-        {
-            "path": "@web-mock/cli"
-        },
-        {
-            "path": "@web-mock/db"
+            "path": "./common"
         }
     ]
 }

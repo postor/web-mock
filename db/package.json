@@ -6,7 +6,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "cross-env YPERSISTENCE=db-files PORT=1234 y-websocket",
     "build": "tsc",
-    "start": "cross-env YPERSISTENCE=db-files PORT=1234 y-websocket"
+    "start": "cross-env YPERSISTENCE=db-files PORT=1234 y-websocket",
+    "ywebsocket": "y-websocket"
   },
   "author": "",
   "license": "ISC",
