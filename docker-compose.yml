@@ -7,6 +7,7 @@ services:
       dockerfile: Dockerfile
     image: postor/webmock-base
     environment:
+      HOST: 0.0.0.0 
       YPERSISTENCE: db-files 
       PORT: 1234
     volumes:

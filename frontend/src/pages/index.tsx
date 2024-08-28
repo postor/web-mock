@@ -141,7 +141,6 @@ function InputMessages({ item }: { item: JsonToYjs<(IRestData)> }) {
                         className="w-full p-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400"
                         placeholder="Enter message"
                     />
-                    <p>{JSON.stringify({ sending: (row as any as IWebSocketData).connections?.[websoceketId]?.sending })}</p>
                     <button
                         disabled={!x.message || !(row.type === 'rest' ? row.detain && row.detaining : true)}
                         onClick={() => {
