@@ -13,7 +13,12 @@ docker compose up
 
 rest mock example:
 - `curl http://localhost:3000/test/rest/api` will get result `{ message: 'Mock response' }`
-- now you can see it on
+- open http://localhost:3020 now you can see it appear on the left, click on the item
+- then you can check detain
+- later `curl http://localhost:3000/test/rest/api` will wait till you send custom message
+
+websockets are similar, just need to choose which socket you want to talk to
+
 
 ## build docker
 
